@@ -185,7 +185,7 @@ import { PrismaClient } from '@prisma/client';
 export class PrismaService extends PrismaClient implements OnModuleInit {
   // Se conecta automáticamente a la base de datos al inicializar el módulo
   async onModuleInit() {
-    await this.$Connect();
+    await this.$connect();
   }
 }
 `;
