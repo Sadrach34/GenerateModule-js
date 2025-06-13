@@ -121,7 +121,7 @@ const structure = [
   `modules/${capitalizePlural(name)}/domain/repositories/${capitalizeMinusPlural(name)}.repository.ts`,
 
   // Implementación concreta del repositorio con Prisma
-  `modules/${capitalizePlural(name)}/infrastucture/prisma/${capitalize(name)}.repository.ts`,
+  `modules/${capitalizePlural(name)}/infrastucture/prisma/${capitalizeMinus(name)}.repository.ts`,
 
   // Controladores para la API REST
   `modules/${capitalizePlural(name)}/interfaces/controllers/${capitalizeMinusPlural(name)}.controller.ts`,
@@ -204,10 +204,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     // DTO para crear un nuevo recurso
     if (relativeFilePath === `modules/${capitalizePlural(name)}/application/dtos/create-${capitalizeMinusPlural(name)}.dto.ts`) {
       content = `import { IsString, IsNumber, IsOptional, IsDate, IsInt } from 'class-validator';
-    
+
 /**
  * DTO para la creación de un nuevo ${capitalize(name)}
- * 
+ *
  * Define los campos requeridos y sus validaciones para crear un ${capitalize(name)}
  * Ejemplo de uso:
  * @IsString()
@@ -233,7 +233,7 @@ import { Type } from 'class-transformer';
 
 /**
  * DTO para actualizar un ${capitalize(name)} existente
- * 
+ *
  * Todos los campos son opcionales para permitir actualizaciones parciales
  * Ejemplo de uso:
  * @IsOptional()
@@ -262,7 +262,7 @@ import { Create${capitalize(name)}Dto } from '../dtos/create-${capitalizeMinusPl
 
 /**
  * Caso de uso para la creación de un nuevo ${capitalize(name)}
- * 
+ *
  * Implementa la lógica de negocio para crear un ${capitalize(name)}:
  * 1. Validar que no exista un ${capitalize(name)} con el mismo nombre
  * 2. Crear la entidad de dominio
@@ -306,13 +306,13 @@ export class Create${capitalize(name)}UseCase {
       // Delegar la persistencia al repositorio
       return await this.${capitalizeMinus(name)}Repository.create(new${capitalize(name)});
     } catch (error) {
-      // Reenviar excepciones HTTP tal cual
-      if (error instanceof HttpException) throw error;
-      
-      // Convertir otros errores en HttpException con mensaje descriptivo
-      const message = error && error.message ? error.message : String(error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
-        { Error: \`Error al crear el ${capitalize(name)}: \${message} \` },
+        {
+          Error: \`Error al crear el equipo: \${(error as Error).message}\`,
+        },
         500,
       );
     }
@@ -343,7 +343,7 @@ export class Get${capitalize(name)}UseCase {
    * @returns Lista de ${capitalizeMinusPlural(name)}
    * @throws HttpException si no hay ${capitalizeMinusPlural(name)} o si ocurre un error
    */
-  async getAll${capitalize(name)}(): Promise<${capitalize(name)}[]> {
+  async getAll${capitalize(name)}(): Promise<${capitalizePlural(name)}[]> {
     try {
       // Obtener todos los registros no eliminados
       const ${capitalizeMinusPlural(name)} = await this.${capitalizeMinus(name)}Repository.findAll();
@@ -375,7 +375,7 @@ export class Get${capitalize(name)}UseCase {
    * @returns El ${capitalizeMinus(name)} encontrado
    * @throws HttpException si el ID no es válido, si no existe el ${capitalizeMinus(name)} o si ocurre un error
    */
-  async get${capitalize(name)}ById(id: number): Promise<${capitalizeMinusPlural(name)}> {
+  async get${capitalize(name)}ById(id: number): Promise<${capitalizePlural(name)}> {
     try {
       // Asegúrate de que id sea un número
       const numericId = Number(id); // Esto convierte a número si es una cadena
@@ -422,7 +422,7 @@ import { ${capitalizePlural(name)} } from '../../domain/entities/${capitalizeMin
 
 /**
  * Caso de uso para eliminación lógica de ${capitalizeMinusPlural(name)}
- * 
+ *
  * Implementa la lógica para marcar un ${capitalizeMinus(name)} como eliminado sin borrarlo físicamente
  * de la base de datos (soft-delete).
  */
@@ -470,7 +470,7 @@ import { Update${capitalize(name)}Dto } from '../dtos/update-${capitalizeMinusPl
 
 /**
  * Caso de uso para actualizar ${capitalizeMinusPlural(name)}
- * 
+ *
  * Implementa la lógica para modificar un ${capitalizeMinus(name)} existente
  * utilizando el DTO de actualización para validar los datos de entrada
  */
@@ -506,18 +506,12 @@ export class Update${capitalize(name)}UseCase {
       // Lógica de actualización...
       const updated${capitalize(name)}Data = {
         id: numericId,
-        name: data.name || existing${capitalize(name)}.name,
-        price: data.price !== undefined ? data.price : existing${capitalize(name)}.price,
-        stock: data.stock !== undefined ? data.stock : existing${capitalize(name)}.stock,
-        expiration:
-          data.expiration !== undefined
-            ? data.expiration
-            : existing${capitalize(name)}.expiration,
-        description:
-          data.description !== undefined
-            ? data.description
-            : existing${capitalize(name)}.description,
-        image: data.image !== undefined ? data.image : existing${capitalize(name)}.image,
+        // Ejemplo de actualización
+        // data.serviceId,
+        // data.name || existingTeam.name,
+        // data.entryTime,
+        // data.departureTime,
+        // data.image,
       };
 
       return this.${capitalizeMinus(name)}Repository.update(numericId, updated${capitalize(name)}Data); // Pasar numericId
@@ -534,15 +528,14 @@ export class Update${capitalize(name)}UseCase {
     }
   }
 }
-
 `;
     }
 
     // Definición de la entidad de dominio
-    if (relativeFilePath === `modules/${capitalizePlural(name)}/domain/entities/${capitalizeMinusPlural(name)}.entity.ts`) {
+    if (relativeFilePath === `modules/${capitalizePlural(name)}/domain/entities/${capitalizeMinus(name)}.entity.ts`) {
       content = `/**
  * Entidad de dominio para ${capitalizeMinusPlural(name)}
- * 
+ *
  * Esta clase representa el modelo de dominio para ${capitalizeMinusPlural(name)},
  * conteniendo todas las propiedades y comportamientos esenciales del negocio,
  * independiente de la infraestructura o frameworks utilizados.
@@ -571,7 +564,7 @@ export class ${capitalizePlural(name)} {
 
 /**
  * Repositorio abstracto para ${capitalizeMinusPlural(name)}
- * 
+ *
  * Define el contrato que deben implementar todos los repositorios concretos
  * que manejen ${capitalizeMinusPlural(name)}. Siguiendo el principio de inversión de dependencias,
  * la capa de dominio define la interfaz y la capa de infraestructura proporciona
@@ -584,27 +577,27 @@ export abstract class ${capitalize(name)}Repository {
    * @returns El ${capitalizeMinus(name)} creado
    */
   abstract create(${capitalizeMinus(name)}: ${capitalizePlural(name)}): Promise<${capitalizePlural(name)}>;
-  
+
   /**
    * Obtiene todos los ${capitalizeMinusPlural(name)}
    * @returns Lista de ${capitalizeMinusPlural(name)}
    */
   abstract findAll(): Promise<${capitalizePlural(name)}[]>;
-  
+
   /**
    * Busca un ${capitalizeMinus(name)} por su ID
    * @param id - ID del ${capitalizeMinus(name)} a buscar
    * @returns El ${capitalizeMinus(name)} encontrado o null si no existe
    */
   abstract findById(id: number): Promise<${capitalizePlural(name)} | null>;
-  
+
   /**
    * Busca un ${capitalizeMinus(name)} por su nombre
    * @param name - Nombre del ${capitalizeMinus(name)} a buscar
    * @returns El ${capitalizeMinus(name)} encontrado o null si no existe
    */
   abstract findByName(name: string): Promise<${capitalizePlural(name)} | null>;
-  
+
   /**
    * Actualiza un ${capitalizeMinus(name)} existente
    * @param id - ID del ${capitalizeMinus(name)} a actualizar
@@ -612,7 +605,7 @@ export abstract class ${capitalize(name)}Repository {
    * @returns El ${capitalizeMinus(name)} actualizado
    */
   abstract update(id: number, ${capitalizeMinus(name)}: ${capitalizePlural(name)}): Promise<${capitalizePlural(name)}>;
-  
+
   /**
    * Elimina lógicamente un ${capitalizeMinus(name)} (soft-delete)
    * @param id - ID del ${capitalizeMinus(name)} a eliminar
@@ -620,20 +613,19 @@ export abstract class ${capitalize(name)}Repository {
    */
   abstract delete(id: number): Promise<${capitalizePlural(name)}>;
 }
-
 `;
     }
 
     // Implementación del repositorio con Prisma (capa de infraestructura)
-    if (relativeFilePath === `modules/${capitalizePlural(name)}/infrastucture/prisma/${capitalize(name)}.repository.ts`) {
+    if (relativeFilePath === `modules/${capitalizePlural(name)}/infrastucture/prisma/${capitalizeMinus(name)}.repository.ts`) {
       content = `import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/Connect/prisma.service';
-import { ${capitalize(name)}Repository } from 'src/modules/${capitalizeMinusPlural(name)}/domain/repositories/${capitalizeMinusPlural(name)}.repository';
-import { ${capitalizePlural(name)} } from 'src/modules/${capitalizeMinusPlural(name)}/domain/entities/${capitalizeMinus(name)}.entity';
+import { ${capitalize(name)}Repository } from '../../domain/repositories/${capitalizeMinusPlural(name)}.repository';
+import { ${capitalizePlural(name)} } from '../../domain/entities/${capitalizeMinus(name)}.entity';
 
 /**
  * Implementación del repositorio de ${capitalizeMinusPlural(name)} usando Prisma ORM
- * 
+ *
  * Esta clase implementa la interfaz definida en el dominio y proporciona
  * la implementación concreta utilizando Prisma como ORM para interactuar
  * con la base de datos.
@@ -661,7 +653,7 @@ export class ${capitalize(name)}PrismaRepository implements ${capitalize(name)}R
         // image: ${capitalizeMinus(name)}.image,
       },
     });
-    
+
     // Mapear el resultado de Prisma a la entidad de dominio
     return new ${capitalizePlural(name)}(
       // Ejemplo - descomenta y adapta según tu modelo
@@ -713,10 +705,10 @@ export class ${capitalize(name)}PrismaRepository implements ${capitalize(name)}R
         deletedAt: null, // Solo registros no eliminados
       },
     });
-    
+
     // Si no se encuentra, devolver null
     if (!${capitalizeMinus(name)}) return null;
-    
+
     // Mapear el resultado de Prisma a la entidad de dominio
     return new ${capitalizePlural(name)}(
       // Ejemplo - descomenta y adapta según tu modelo
@@ -729,7 +721,7 @@ export class ${capitalize(name)}PrismaRepository implements ${capitalize(name)}R
       // ${capitalizeMinus(name)}.image || undefined,
     );
   }
-  
+
   /**
    * Actualiza un ${capitalizeMinus(name)} existente
    * @param id - ID del ${capitalizeMinus(name)} a actualizar
@@ -773,7 +765,7 @@ export class ${capitalize(name)}PrismaRepository implements ${capitalize(name)}R
         deletedAt: new Date(), // Marca de tiempo para soft-delete
       },
     });
-    
+
     // Mapear el resultado de Prisma a la entidad de dominio
     return new ${capitalizePlural(name)}(
       // Ejemplo - descomenta y adapta según tu modelo
@@ -786,7 +778,7 @@ export class ${capitalize(name)}PrismaRepository implements ${capitalize(name)}R
       // deleted.image || undefined,
     );
   }
-  
+
   /**
    * Busca un ${capitalizeMinus(name)} por su nombre
    * @param name - Nombre del ${capitalizeMinus(name)} a buscar
@@ -800,10 +792,10 @@ export class ${capitalize(name)}PrismaRepository implements ${capitalize(name)}R
         deletedAt: null, // Solo registros no eliminados
       },
     });
-    
+
     // Si no se encuentra, devolver null
     if (!${capitalizeMinus(name)}) return null;
-    
+
     // Mapear el resultado de Prisma a la entidad de dominio
     return new ${capitalizePlural(name)}(
       // Ejemplo - descomenta y adapta según tu modelo
@@ -837,12 +829,11 @@ import { Update${capitalize(name)}UseCase } from '../../application/use-case/upd
 import { SoftDeleted${capitalize(name)}UseCase } from '../../application/use-case/soft-deleted-${capitalizeMinusPlural(name)}.use-case';
 import { Create${capitalize(name)}Dto } from '../../application/dtos/create-${capitalizeMinusPlural(name)}.dto';
 import { Update${capitalize(name)}Dto } from '../../application/dtos/update-${capitalizeMinusPlural(name)}.dto';
-import { ${capitalize(name)} } from '@prisma/client';
 import { ${capitalizePlural(name)} } from '../../domain/entities/${capitalizeMinus(name)}.entity';
 
 /**
  * Controlador REST para ${capitalizeMinusPlural(name)}
- * 
+ *
  * Expone los endpoints de la API para realizar operaciones CRUD sobre ${capitalizeMinusPlural(name)}
  * siguiendo los principios de Clean Architecture, donde el controlador actúa como
  * adaptador entre la capa de aplicación y el mundo exterior (HTTP).
@@ -863,7 +854,7 @@ export class ${capitalize(name)}Controller {
    */
   @Get()
   async getAll${capitalizePlural(name)}(): Promise<${capitalizePlural(name)}[]> {
-    return this.Get.getAll${capitalizePlural(name)}();
+    return this.Get.getAll${capitalize(name)}();
   }
 
   /**
@@ -924,24 +915,24 @@ export class ${capitalize(name)}Controller {
       content = `import { Module } from '@nestjs/common';
 import { PrismaModule } from 'src/Connect/prisma.module';
 import { ${capitalize(name)}Controller } from './interfaces/controllers/${capitalizeMinusPlural(name)}.controller';
-import { Create${capitalize(name)}UseCase } from './application/use-cases/create-${capitalizeMinusPlural(name)}.use-case';
-import { Get${capitalize(name)}UseCase } from './application/use-cases/get-${capitalizeMinusPlural(name)}.use-case';
-import { Update${capitalize(name)}UseCase } from './application/use-cases/update-${capitalizeMinusPlural(name)}.use-case';
-import { SoftDeleted${capitalize(name)}UseCase } from './application/use-cases/soft-deleted-${capitalizeMinusPlural(name)}.use-case';
+import { Create${capitalize(name)}UseCase } from './application/use-case/create-${capitalizeMinusPlural(name)}.use-case';
+import { Get${capitalize(name)}UseCase } from './application/use-case/get-${capitalizeMinusPlural(name)}.use-case';
+import { Update${capitalize(name)}UseCase } from './application/use-case/update-${capitalizeMinusPlural(name)}.use-case';
+import { SoftDeleted${capitalize(name)}UseCase } from './application/use-case/soft-deleted-${capitalizeMinusPlural(name)}.use-case';
 import { ${capitalize(name)}Repository } from './domain/repositories/${capitalizeMinusPlural(name)}.repository';
-import { ${capitalize(name)}PrismaRepository } from './infrastructure/prisma/${capitalizeMinus(name)}.repository';
+import { ${capitalize(name)}PrismaRepository } from './infrastucture/prisma/${capitalizeMinus(name)}.repository';
 
 /**
  * Módulo de ${capitalizeMinusPlural(name)}
- * 
+ *
  * Este módulo organiza todos los componentes relacionados con ${capitalizeMinusPlural(name)}
  * siguiendo los principios de Clean Architecture:
- * 
+ *
  * 1. Interfaces: Controladores que manejan las peticiones HTTP
  * 2. Aplicación: Casos de uso que implementan la lógica de negocio
  * 3. Dominio: Entidades y repositorios abstractos
  * 4. Infraestructura: Implementaciones concretas de repositorios
- * 
+ *
  * El módulo configura la inyección de dependencias para conectar
  * todas las capas respetando el principio de inversión de dependencias.
  */
@@ -966,7 +957,6 @@ import { ${capitalize(name)}PrismaRepository } from './infrastructure/prisma/${c
   imports: [PrismaModule], // Módulo que proporciona el servicio de Prisma ORM
 })
 export class ${capitalize(name)}Module {}
-
 `;
     }
 
