@@ -29,6 +29,24 @@ const { execSync } = require('child_process'); // Para ejecutar comandos del sis
 const fs = require('fs'); // Para operaciones de sistema de archivos
 const path = require('path'); // Para manejo de rutas
 
+// Constantes para colores de consola
+const Colors = {
+  reset: '\x1b[0m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m'
+};
+
+// Funciones de utilidad para logging con colores
+const Logger = {
+  success: (msg) => console.log(`${Colors.green}✅ ${msg}${Colors.reset}`),
+  warning: (msg) => console.log(`${Colors.yellow}⚠️ ${msg}${Colors.reset}`),
+  error: (msg) => console.log(`${Colors.red}❌ ${msg}${Colors.reset}`),
+  info: (msg) => console.log(`${Colors.cyan}ℹ️ ${msg}${Colors.reset}`),
+  plain: (msg) => console.log(msg)
+};
+
 // Funciones de utilidad para manipulación de strings
 function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -48,6 +66,49 @@ function capitalizeMinus(str) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Función utilitaria para verificar e instalar dependencias de Node.js
+ * @param {string} packageName - Nombre del paquete a verificar/instalar
+ * @param {boolean} isTemporary - Si es true, el paquete se considera temporal
+ * @returns {boolean} - Retorna true si el paquete ya estaba instalado
+ */
+function checkAndInstallPackage(packageName, isTemporary = false) {
+  const packagePath = path.join(process.cwd(), 'node_modules', packageName);
+  const wasInstalled = fs.existsSync(packagePath);
+
+  if (wasInstalled) {
+    const statusIcon = isTemporary ? '⚠️' : '✅';
+    const statusMessage = isTemporary
+      ? `Se detectó que ${packageName} ya está instalado`
+      : `${packageName} ya está instalado`;
+
+    console.log(`\x1b[32m${statusIcon} ${statusMessage}.\x1b[0m\n`);
+
+    if (isTemporary) {
+      console.log(`\x1b[33mEste paquete será desinstalado automáticamente al finalizar el script.\x1b[0m`);
+      console.log(`\x1b[33mSi desea conservarlo, presione Ctrl+C en los próximos 10 segundos para cancelar.\x1b[0m\n`);
+    }
+  } else {
+    const packageType = isTemporary ? 'temporal' : 'necesaria';
+    console.log(`\x1b[36mInstalando dependencia ${packageType} ${packageName}...\x1b[0m`);
+
+    try {
+      execSync(`npm install ${packageName} --save`, { stdio: 'inherit' });
+      if (!isTemporary) {
+        console.log(`\x1b[32m✅ ${packageName} instalado correctamente.\x1b[0m\n`);
+      }
+    } catch (error) {
+      if (isTemporary) {
+        throw error; // Re-lanzar error para paquetes temporales críticos
+      }
+      console.error(`\x1b[31m❌ Error al instalar ${packageName}:`, error.message, '\x1b[0m');
+      console.log(`\x1b[33m⚠️ Continuando sin instalar ${packageName}. Es posible que necesite instalarlo manualmente.\x1b[0m\n`);
+    }
+  }
+
+  return wasInstalled;
 }
 
 /**
@@ -320,7 +381,7 @@ function generatePrismaRepoContent(name, fields) {
       // ❌ No agregar ningún timestamp al constructor
       return;
     }
-    
+
     if (isIdField) {
       constructorCreated += `      created.${fieldName},\n`;
       constructorUpdated += `      updated.${fieldName},\n`;
@@ -334,7 +395,7 @@ function generatePrismaRepoContent(name, fields) {
       constructorUpdated += `      updated.${fieldName},\n`;
       constructorDeleted += `      deleted.${fieldName},\n`;
     }
-    
+
   });
 
   return repoPrisma(
@@ -374,50 +435,65 @@ function generateCreateUseCaseContent(name, fields) {
 
 
 /**
+ * Función utilitaria para crear un archivo con contenido específico
+ * @param {string} filePath - Ruta completa del archivo
+ * @param {string} content - Contenido del archivo
+ * @param {string} description - Descripción del archivo para logging
+ */
+function createFileWithContent(filePath, content, description) {
+  const dir = path.dirname(filePath);
+
+  // Crear la carpeta si no existe
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  // Crear el archivo si no existe
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, content, 'utf8');
+    console.log(`✅ ${description} creado: ${path.relative(process.cwd(), filePath)}`);
+  } else {
+    console.log(`⚠️ ${description} ya existe: ${path.relative(process.cwd(), filePath)}`);
+  }
+}
+
+/**
+ * Mapeo de archivos a sus funciones generadoras de contenido
+ */
+function getContentGenerator(fileName, model) {
+  const { name, fields } = model;
+
+  if (fileName.includes('prisma.module.ts')) return modulePrisma();
+  if (fileName.includes('prisma.service.ts')) return servicePrisma();
+  if (fileName.includes('create-') && fileName.includes('.dto.ts')) return generateDtoContent(name, fields);
+  if (fileName.includes('update-') && fileName.includes('.dto.ts')) return generateUpdateDtoContent(name, fields);
+  if (fileName.includes('create-') && fileName.includes('.use-case.ts')) return generateCreateUseCaseContent(name, fields);
+  if (fileName.includes('get-') && fileName.includes('.use-case.ts')) return useCaseGet(name);
+  if (fileName.includes('soft-deleted-') && fileName.includes('.use-case.ts')) return useCaseSoftDeleted(name);
+  if (fileName.includes('update-') && fileName.includes('.use-case.ts')) return useCaseUpdate(name);
+  if (fileName.includes('.entity.ts')) return generateEntityContent(name, fields);
+  if (fileName.includes('repositories/')) return repoDomain(name);
+  if (fileName.includes('infrastructure/') || fileName.includes('infrastucture/')) return generatePrismaRepoContent(name, fields);
+  if (fileName.includes('.controller.ts')) return apiRest(name);
+  if (fileName.includes('.module.ts') && !fileName.includes('prisma')) return moduleNest(name);
+
+  return `// Archivo generado automáticamente para ${name}\n// TODO: Implementar contenido específico\n`;
+}
+
+/**
  * Función principal que ejecuta el script
  */
 async function main() {
   try {
-    // Verificar si readline-sync ya está instalado
-    let readlineSyncInstalled = false;
-    try {
-      // Intentar verificar si readline-sync está en node_modules
-      if (
-        fs.existsSync(path.join(process.cwd(), 'node_modules', 'readline-sync'))
-      ) {
-        readlineSyncInstalled = true;
-        console.log(
-          '\n\x1b[33mATENCIÓN: Se detectó que readline-sync ya está instalado.\x1b[0m',
-        );
-        console.log(
-          '\x1b[33mEste paquete será desinstalado automáticamente al finalizar el script.\x1b[0m',
-        );
-        console.log(
-          '\x1b[33mSi desea conservarlo, presione Ctrl+C en los próximos 10 segundos para cancelar.\x1b[0m\n',
-        );
+    // Verificar e instalar dependencias
+    console.log('\n🔧 Verificando dependencias...\n');
+    const readlineSyncInstalled = checkAndInstallPackage('readline-sync', true);
+    const classValidatorInstalled = checkAndInstallPackage('class-validator', false);
 
-        // Esperar 10 segundos antes de continuar
-        console.log('\x1b[36mContinuando en 10 segundos...\x1b[0m');
-        // await sleep(10000);
-        console.log(
-          '\x1b[32mContinuando con la ejecución del script...\x1b[0m\n',
-        );
-        console.log('\x1b[32mSe instalara class-validator\x1b[0m\n');
-        // execSync("npm uninstall class-validator", { stdio: "inherit" });
-        // execSync("npm install class-validator --save", { stdio: "inherit" });
-      } else {
-        // Si no está instalado, instalarlo
-        console.log(
-          '\x1b[36mInstalando dependencia temporal readline-sync...\x1b[0m',
-        );
-        execSync('npm install readline-sync --save', { stdio: 'inherit' });
-      }
-    } catch (error) {
-      // Si hay algún error, intentar instalar de todas formas
-      console.log(
-        '\x1b[36mInstalando dependencia temporal readline-sync...\x1b[0m',
-      );
-      execSync('npm install readline-sync --save', { stdio: 'inherit' });
+    if (readlineSyncInstalled) {
+      console.log('\x1b[36mContinuando en 10 segundos...\x1b[0m');
+      // await sleep(10000);
+      console.log('\x1b[32mContinuando con la ejecución del script...\x1b[0m\n');
     }
 
     const readlineSync = require('readline-sync'); // Para interacción con el usuario en la consola
@@ -480,124 +556,9 @@ async function main() {
       for (const relativeFilePath of fileStructure) {
         // Construir la ruta completa del archivo
         const fullPath = path.join(basePath, relativeFilePath);
-        // Obtener el directorio del archivo
-        const dir = path.dirname(fullPath);
-
-        // Crear la carpeta si no existe (con creación recursiva de directorios padres)
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-          console.log(`📁 Creado directorio: ${dir}`);
-        }
 
         // Crear el archivo con contenido específico si no existe
-        if (!fs.existsSync(fullPath)) {
-          // Contenido por defecto para cualquier archivo
-          let content = `// ${path.basename(fullPath)} generado automáticamente\n`;
-
-          // Archivo del módulo de Prisma
-          if (relativeFilePath === 'Connect/prisma.module.ts') {
-            content = modulePrisma();
-          }
-
-          // Archivo del servicio de Prisma
-          if (relativeFilePath === 'Connect/prisma.service.ts') {
-            content = servicePrisma();
-          }
-
-          // DTO para crear un nuevo recurso
-          if (
-            relativeFilePath ===
-            `modules/${capitalizePlural(name)}/application/dtos/create-${capitalizeMinusPlural(name)}.dto.ts`
-          ) {
-            content = generateDtoContent(name, model.fields);
-          }
-
-          // DTO para actualizar un recurso existente
-          if (
-            relativeFilePath ===
-            `modules/${capitalizePlural(name)}/application/dtos/update-${capitalizeMinusPlural(name)}.dto.ts`
-          ) {
-            content = generateUpdateDtoContent(name, model.fields);
-          }
-
-          // Caso de uso para crear un nuevo recurso
-          if (
-            relativeFilePath ===
-            `modules/${capitalizePlural(name)}/application/use-case/create-${capitalizeMinusPlural(name)}.use-case.ts`
-          ) {
-            content = generateCreateUseCaseContent(name, model.fields);
-          }
-
-          // Caso de uso para obtener recursos (listar todos y buscar por ID)
-          if (
-            relativeFilePath ===
-            `modules/${capitalizePlural(name)}/application/use-case/get-${capitalizeMinusPlural(name)}.use-case.ts`
-          ) {
-            content = useCaseGet(name);
-          }
-
-          // Caso de uso para eliminación lógica (soft-delete) de recursos
-          if (
-            relativeFilePath ===
-            `modules/${capitalizePlural(name)}/application/use-case/soft-deleted-${capitalizeMinusPlural(name)}.use-case.ts`
-          ) {
-            content = useCaseSoftDeleted(name);
-          }
-
-          // Caso de uso para actualizar recursos
-          if (
-            relativeFilePath ===
-            `modules/${capitalizePlural(name)}/application/use-case/update-${capitalizeMinusPlural(name)}.use-case.ts`
-          ) {
-            content = useCaseUpdate(name);
-          }
-
-          // Definición de la entidad de dominio
-          if (
-            relativeFilePath ===
-            `modules/${capitalizePlural(name)}/domain/entities/${capitalizeMinus(name)}.entity.ts`
-          ) {
-            content = generateEntityContent(name, model.fields);
-          }
-
-          // Definición del repositorio de dominio (interfaz abstracta)
-          if (
-            relativeFilePath ===
-            `modules/${capitalizePlural(name)}/domain/repositories/${capitalizeMinusPlural(name)}.repository.ts`
-          ) {
-            content = repoDomain(name);
-          }
-
-          // Implementación del repositorio con Prisma (capa de infraestructura)
-          if (
-            relativeFilePath ===
-            `modules/${capitalizePlural(name)}/infrastucture/prisma/${capitalizeMinus(name)}.repository.ts`
-          ) {
-            content = generatePrismaRepoContent(name, model.fields);
-          }
-
-          // Controlador en la capa de interfaces (API REST)
-          if (
-            relativeFilePath ===
-            `modules/${capitalizePlural(name)}/interfaces/controllers/${capitalizeMinusPlural(name)}.controller.ts`
-          ) {
-            content = apiRest(name);
-          }
-
-          // Definición del módulo NestJS
-          if (
-            relativeFilePath ===
-            `modules/${capitalizePlural(name)}/${capitalizeMinusPlural(name)}.module.ts`
-          ) {
-            content = moduleNest(name);
-          }
-
-          // Escribe el contenido generado en el archivo de destino
-          fs.writeFileSync(fullPath, content);
-          console.log(`✅ Creado: ${relativeFilePath}`);
-        } else {
-          console.log(`⚠️ Ya existe: ${relativeFilePath}`);
-        }
+        createFileWithContent(fullPath, getContentGenerator(relativeFilePath, model), relativeFilePath);
       }
 
       // Actualización automática del módulo principal de la aplicación (app.module.ts)
@@ -650,50 +611,33 @@ async function main() {
 
     console.log('\n✅ Generación de módulos completada con éxito.');
 
-    // Desinstalar readline-sync solo si no estaba previamente instalado
-    if (!readlineSyncInstalled) {
-      try {
-        console.log('🧹 Limpiando dependencias temporales...');
-        console.log(
-          '\x1b[33mDesinstalando readline-sync en 10 segundos...\x1b[0m',
-        );
-        console.log(
-          '\x1b[33mSi desea conservarlo, presione Ctrl+C para cancelar.\x1b[0m',
-        );
-
-        // Esperar 10 segundos antes de desinstalar
-        // await sleep(10000);
-
-        execSync('npm uninstall readline-sync', { stdio: 'inherit' });
-        console.log('✅ Dependencias temporales eliminadas correctamente.');
-      } catch (cleanupErr) {
-        console.log(
-          '⚠️ No se pudo eliminar readline-sync:',
-          cleanupErr.message,
-        );
-      }
-    } else {
-      console.log(
-        'ℹ️ No se ha desinstalado readline-sync porque ya estaba instalado antes de ejecutar el script.',
-      );
-      // const answer = readlineSync.question('Desea desinstalar readline-sync? (y/n)');
-      const answer = 'n';
-      if (answer === 'y') {
-        try {
-          console.log('🧹 Limpiando dependencias temporales...');
-          execSync('npm uninstall readline-sync', { stdio: 'inherit' });
-          console.log('✅ Dependencias temporales eliminadas correctamente.');
-        } catch (cleanupErr) {
-          console.log(
-            '⚠️ No se pudo eliminar readline-sync:',
-            cleanupErr.message,
-          );
-        }
-      }
-    }
+    // Limpiar dependencias temporales
+    cleanupTemporaryDependencies(readlineSyncInstalled);
   } catch (error) {
     console.error(`❌ Error en la ejecución del script: ${error.message}`);
     process.exit(1);
+  }
+}
+
+/**
+ * Función para limpiar dependencias temporales
+ * @param {boolean} wasInstalled - Si el paquete ya estaba instalado antes
+ */
+function cleanupTemporaryDependencies(wasInstalled) {
+  if (!wasInstalled) {
+    try {
+      console.log('🧹 Limpiando dependencias temporales...');
+      console.log('\x1b[33mDesinstalando readline-sync en 10 segundos...\x1b[0m');
+      console.log('\x1b[33mSi desea conservarlo, presione Ctrl+C para cancelar.\x1b[0m');
+
+      // await sleep(10000);
+      execSync('npm uninstall readline-sync', { stdio: 'inherit' });
+      console.log('✅ Dependencias temporales eliminadas correctamente.');
+    } catch (cleanupErr) {
+      console.log('⚠️ No se pudo eliminar readline-sync:', cleanupErr.message);
+    }
+  } else {
+    console.log('ℹ️ No se ha desinstalado readline-sync porque ya estaba instalado antes de ejecutar el script.');
   }
 }
 

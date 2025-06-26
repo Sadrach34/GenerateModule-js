@@ -4,40 +4,17 @@
  */
 
 /**
- * Convierte la primera letra de un string a mayúscula
- * @param {string} str - String a capitalizar
- * @returns {string} String con la primera letra en mayúscula
+ * Objeto con todas las funciones de transformación de strings
  */
-function capitalize(str) {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
+const StringUtils = {
+  capitalize: (str) => str.charAt(0).toUpperCase() + str.slice(1),
+  capitalizePlural: (str) => str.charAt(0).toUpperCase() + str.slice(1) + "s",
+  capitalizeMinusPlural: (str) => str.charAt(0).toLowerCase() + str.slice(1) + "s",
+  capitalizeMinus: (str) => str.charAt(0).toLowerCase() + str.slice(1)
+};
 
-/**
- * Convierte la primera letra a mayúscula y añade una 's' al final
- * @param {string} str - String a capitalizar y pluralizar
- * @returns {string} String capitalizado y pluralizado
- */
-function capitalizePlural(str) {
-  return str.charAt(0).toUpperCase() + str.slice(1) + "s";
-}
-
-/**
- * Convierte la primera letra a minúscula y añade una 's' al final
- * @param {string} str - String a convertir a minúscula y pluralizar
- * @returns {string} String en minúscula y pluralizado
- */
-function capitalizeMinusPlural(str) {
-  return str.charAt(0).toLowerCase() + str.slice(1) + "s";
-}
-
-/**
- * Convierte la primera letra de un string a minúscula
- * @param {string} str - String a convertir a minúscula
- * @returns {string} String con la primera letra en minúscula
- */
-function capitalizeMinus(str) {
-  return str.charAt(0).toLowerCase() + str.slice(1);
-}
+// Mantenemos las funciones individuales para compatibilidad hacia atrás
+const { capitalize, capitalizePlural, capitalizeMinusPlural, capitalizeMinus } = StringUtils;
 
 //aqui comienzan los templates modificables
 /***-------------------------------------------------------------------------------------------------------------------------------------------**```*/
